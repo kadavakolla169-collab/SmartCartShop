@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GoCart - Shopping Made Easy</title>
+  <title>SmartCart - Smart Shopping with Sustainability</title>
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
@@ -11,15 +11,16 @@
   <nav class="navbar">
     <div class="container">
       <div class="nav-brand">
-        <h1>🛒 GoCart</h1>
+        <h1>🛒 SmartCart</h1>
       </div>
       <div class="nav-links">
-        <a href="#" data-page="products">Products</a>
-        <a href="#" data-page="cart" class="cart-link">
+        <a href="#" data-page="products" id="navProducts">Products</a>
+        <a href="#" data-page="cart" id="navCart" class="cart-link" style="display:none;">
           Cart <span class="cart-badge" id="cartBadge">0</span>
         </a>
-        <a href="#" data-page="orders" id="ordersLink" style="display:none;">Orders</a>
-        <a href="#" data-page="admin" id="adminLink" style="display:none;">Admin Panel</a>
+        <a href="#" data-page="orders" id="navOrders" style="display:none;">Orders</a>
+        <a href="#" data-page="sustainability" id="navSustainability" style="display:none;"> My Impact</a>
+        <a href="#" data-page="admin" id="navAdmin" style="display:none;">Admin Panel</a>
         <div id="authButtons">
           <button class="btn btn-secondary" data-page="login">Login</button>
           <button class="btn btn-primary" data-page="register">Register</button>
@@ -37,7 +38,7 @@
     <!-- Products Page -->
     <div id="productsPage" class="page active">
       <div class="page-header">
-        <h2>Our Products</h2>
+        <h2>Products</h2>
         <div class="product-controls">
           <input type="text" id="searchInput" placeholder="Search products..." class="search-input">
           <select id="categoryFilter" class="category-select">
@@ -63,8 +64,84 @@
 
     <!-- Orders Page -->
     <div id="ordersPage" class="page">
-      <h2>My Orders</h2>
       <div id="ordersList"></div>
+    </div>
+
+    <!-- Sustainability Dashboard Page -->
+    <div id="sustainabilityPage" class="page">
+      <h2> Your Sustainability Impact</h2>
+      
+      <div class="sustainability-dashboard">
+        <!-- Stats Cards -->
+        <div class="impact-cards">
+          <div class="impact-card green">
+            <div class="impact-icon">🌍</div>
+            <div class="impact-value" id="co2Saved">0 kg</div>
+            <div class="impact-label">CO₂ Saved</div>
+          </div>
+          
+          <div class="impact-card blue">
+            <div class="impact-icon">♻️</div>
+            <div class="impact-value" id="plasticSaved">0 g</div>
+            <div class="impact-label">Plastic Avoided</div>
+          </div>
+          
+          <div class="impact-card purple">
+            <div class="impact-icon">⭐</div>
+            <div class="impact-value" id="greenPoints">0</div>
+            <div class="impact-label">Green Points</div>
+          </div>
+          
+          <div class="impact-card orange">
+            <div class="impact-icon">🏆</div>
+            <div class="impact-value" id="userRank">#0</div>
+            <div class="impact-label">Global Rank</div>
+          </div>
+        </div>
+        
+        <!-- Cart Impact -->
+        <div class="cart-impact-section">
+          <h3>Current Cart Environmental Impact</h3>
+          <div id="cartImpact" class="cart-impact-display"></div>
+        </div>
+        
+        <!-- Preferences -->
+        <div class="preferences-section">
+          <h3>Sustainability Preferences</h3>
+          <form id="sustainabilityPreferencesForm">
+            <div class="form-group">
+              <label for="packagingPref">Packaging Preference:</label>
+              <select id="packagingPref" class="form-select">
+                <option value="standard">Standard Packaging</option>
+                <option value="minimal">Minimal Packaging (+5 pts)</option>
+                <option value="recyclable">100% Recyclable (+5 pts)</option>
+              </select>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label>
+                <input type="checkbox" id="notifyGreenDeals">
+                Notify me about eco-friendly deals
+              </label>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label>
+                <input type="checkbox" id="showCarbonFootprint" checked>
+                Show carbon footprint on products
+              </label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Preferences</button>
+          </form>
+        </div>
+        
+        <!-- Leaderboard -->
+        <div class="leaderboard-section">
+          <h3>🏆 Green Champions Leaderboard</h3>
+          <div id="leaderboard"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Admin Panel Page -->
@@ -120,6 +197,46 @@
               <img id="previewImg" src="" alt="Preview">
             </div>
 
+            <!-- Sustainability Fields -->
+            <div class="form-group" style="background: #e8f5e9; padding: 1rem; border-radius: 5px; margin-top: 1rem;">
+              <h4 style="color: #4caf50; margin-bottom: 1rem;">🌱 Sustainability Information</h4>
+              
+              <div class="form-group checkbox-group">
+                <label>
+                  <input type="checkbox" id="adminProductEcoFriendly">
+                  Mark as Eco-Friendly Product
+                </label>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="adminProductCarbon">Carbon Footprint (kg CO₂)</label>
+                  <input type="number" id="adminProductCarbon" step="0.1" min="0" value="2.5">
+                  <small>Average CO₂ emissions per unit</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="adminProductPlastic">Plastic Content (grams)</label>
+                  <input type="number" id="adminProductPlastic" min="0" value="50">
+                  <small>Grams of plastic in packaging</small>
+                </div>
+              </div>
+
+              <div class="form-group checkbox-group">
+                <label>
+                  <input type="checkbox" id="adminProductRecyclable">
+                  100% Recyclable Packaging
+                </label>
+              </div>
+
+              <div class="form-group checkbox-group">
+                <label>
+                  <input type="checkbox" id="adminProductLocal">
+                  Locally Sourced Product
+                </label>
+              </div>
+            </div>
+
             <div class="form-actions">
               <button type="submit" class="btn btn-primary btn-large">
                 <span id="adminFormBtnText">Add Product</span>
@@ -156,7 +273,7 @@
         <form id="registerForm">
           <input type="text" id="registerName" placeholder="Full Name" required>
           <input type="email" id="registerEmail" placeholder="Email" required>
-          <input type="password" id="registerPassword" placeholder="Password" required>
+          <input type="password" id="registerPassword" placeholder="Password" minlength="6" required>
           <div class="admin-register-option">
             <label>
               <input type="checkbox" id="registerAsAdmin">

@@ -73,8 +73,12 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Cart is empty' });
     }
     
-    // Calculate total and validate stock
+    // Calculate total and sustainability metrics
     let total = 0;
+    let totalCO2 = 0;
+    let totalPlastic = 0;
+    let greenPointsEarned = 0;
+    
     for (const item of cartItems) {
       if (item.product.stock < item.quantity) {
         return res.status(400).json({
@@ -82,16 +86,39 @@ router.post('/', async (req, res) => {
         });
       }
       total += parseFloat(item.product.price) * item.quantity;
+      totalCO2 += item.product.carbonFootprint * item.quantity;
+      totalPlastic += item.product.plasticContent * item.quantity;
+      
+      // Award green points for eco-friendly products
+      if (item.product.isEcoFriendly) {
+        greenPointsEarned += item.quantity * 10;
+      }
     }
     
-    // Create order with items in a transaction
+    // Get user's packaging preference
+    const preferences = await prisma.userPreference.findUnique({
+      where: { userId: req.userId }
+    });
+    
+    const packagingType = preferences?.packagingPreference || 'standard';
+    
+    // Bonus points for eco-friendly packaging
+    if (packagingType === 'minimal' || packagingType === 'recyclable') {
+      greenPointsEarned += 5;
+    }
+    
+    // Create order with sustainability tracking
     const order = await prisma.$transaction(async (tx) => {
       // Create order
       const newOrder = await tx.order.create({
         data: {
           userId: req.userId,
           total: total,
-          status: 'pending'
+          status: 'pending',
+          totalCO2: totalCO2,
+          totalPlastic: totalPlastic,
+          greenPointsEarned: greenPointsEarned,
+          packagingType: packagingType
         }
       });
       
@@ -106,7 +133,6 @@ router.post('/', async (req, res) => {
           }
         });
         
-        // Decrease product stock
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -116,6 +142,16 @@ router.post('/', async (req, res) => {
           }
         });
       }
+      
+      // Update user's sustainability stats
+      await tx.user.update({
+        where: { id: req.userId },
+        data: {
+          greenPoints: { increment: greenPointsEarned },
+          totalCO2Saved: { increment: totalCO2 },
+          totalPlasticSaved: { increment: totalPlastic }
+        }
+      });
       
       // Clear cart
       await tx.cartItem.deleteMany({

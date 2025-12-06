@@ -8,7 +8,9 @@ const state = {
   products: [],
   cart: [],
   orders: [],
-  currentPage: 'products'
+  currentPage: 'products',
+  sustainabilityData: null,
+  cartImpact: null
 };
 
 // Initialize app
@@ -39,17 +41,21 @@ function checkAuth() {
 function updateAuthUI(isAuthenticated) {
   const authButtons = document.getElementById('authButtons');
   const userInfo = document.getElementById('userInfo');
-  const ordersLink = document.getElementById('ordersLink');
-  const adminLink = document.getElementById('adminLink');
+  const navCart = document.getElementById('navCart');
+  const navOrders = document.getElementById('navOrders');
+  const navAdmin = document.getElementById('navAdmin');
+  const navSustainability = document.getElementById('navSustainability');
   
   if (isAuthenticated) {
     authButtons.style.display = 'none';
     userInfo.style.display = 'flex';
-    ordersLink.style.display = 'block';
+    navCart.style.display = 'block';
+    navOrders.style.display = 'block';
+    navSustainability.style.display = 'block';
     
     // Show admin link only for admin users
     if (state.user && state.user.role === 'admin') {
-      adminLink.style.display = 'block';
+      navAdmin.style.display = 'block';
     }
     
     if (state.user && state.user.name) {
@@ -58,8 +64,27 @@ function updateAuthUI(isAuthenticated) {
   } else {
     authButtons.style.display = 'flex';
     userInfo.style.display = 'none';
-    ordersLink.style.display = 'none';
-    adminLink.style.display = 'none';
+    navCart.style.display = 'none';
+    navOrders.style.display = 'none';
+    navAdmin.style.display = 'none';
+    navSustainability.style.display = 'none';
+  }
+  
+  // Update active page indicator
+  updateActiveNav(state.currentPage);
+}
+
+// Update active navigation indicator
+function updateActiveNav(page) {
+  // Remove active class from all nav links
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.classList.remove('active');
+  });
+  
+  // Add active class to current page
+  const navLink = document.getElementById(`nav${page.charAt(0).toUpperCase() + page.slice(1)}`);
+  if (navLink) {
+    navLink.classList.add('active');
   }
 }
 
@@ -90,6 +115,9 @@ function initEventListeners() {
   document.getElementById('adminProductForm').addEventListener('submit', handleAdminProductSubmit);
   document.getElementById('adminCancelBtn').addEventListener('click', resetAdminForm);
   document.getElementById('adminProductImage').addEventListener('input', previewImage);
+  
+  // Sustainability preferences
+  document.getElementById('sustainabilityPreferencesForm').addEventListener('submit', handleSustainabilityPreferences);
 }
 
 // Navigation
@@ -97,6 +125,13 @@ function navigateTo(page) {
   // Check if trying to access admin page
   if (page === 'admin' && (!state.user || state.user.role !== 'admin')) {
     showToast('Admin access required', 'error');
+    return;
+  }
+  
+  // Check if trying to access protected pages
+  if (['cart', 'orders', 'sustainability'].includes(page) && !state.token) {
+    showToast('Please login first', 'error');
+    navigateTo('login');
     return;
   }
   
@@ -111,6 +146,9 @@ function navigateTo(page) {
     pageElement.classList.add('active');
   }
   
+  // Update active nav indicator
+  updateActiveNav(page);
+  
   // Load page data
   if (page === 'cart') {
     loadCart();
@@ -118,6 +156,8 @@ function navigateTo(page) {
     loadOrders();
   } else if (page === 'admin') {
     loadAdminProducts();
+  } else if (page === 'sustainability') {
+    loadSustainabilityDashboard();
   }
 }
 
@@ -261,29 +301,50 @@ function renderProducts(products) {
     return;
   }
   
-  container.innerHTML = products.map(product => `
-    <div class="product-card">
-      <img src="${product.imageUrl || 'https://via.placeholder.com/300x200?text=Product'}" 
-           alt="${product.name}" class="product-image">
-      <span class="product-category">${product.category}</span>
-      <h3 class="product-name">${product.name}</h3>
-      <p class="product-description">${product.description}</p>
-      <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
-      <div class="product-stock">Stock: ${product.stock}</div>
-      <div class="product-actions">
-        ${state.token ? `
-          <button class="btn btn-primary" onclick="addToCart(${product.id})" 
-                  ${product.stock === 0 ? 'disabled' : ''}>
-            ${product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-          </button>
-        ` : `
-          <button class="btn btn-secondary" onclick="navigateTo('login')">
-            Login to Buy
-          </button>
-        `}
+  container.innerHTML = products.map(product => {
+    // Determine carbon level
+    let carbonClass = 'low';
+    let carbonEmoji = '🌱';
+    if (product.carbonFootprint > 10) {
+      carbonClass = 'high';
+      carbonEmoji = '⚠️';
+    } else if (product.carbonFootprint > 5) {
+      carbonClass = 'medium';
+      carbonEmoji = '⚡';
+    }
+    
+    return `
+      <div class="product-card">
+        ${product.isEcoFriendly ? '<div class="eco-badge">🌿 Eco-Friendly</div>' : ''}
+        <img src="${product.imageUrl || 'https://via.placeholder.com/300x200?text=Product'}" 
+             alt="${product.name}" class="product-image">
+        <span class="product-category">${product.category}</span>
+        <h3 class="product-name">${product.name}</h3>
+        <p class="product-description">${product.description}</p>
+        <div class="product-price">$${parseFloat(product.price).toFixed(2)}</div>
+        <div class="carbon-footprint ${carbonClass}">
+          ${carbonEmoji} ${product.carbonFootprint.toFixed(1)} kg CO₂
+        </div>
+        <div class="product-stock">Stock: ${product.stock}</div>
+        <div class="product-actions">
+          ${state.token ? `
+            <button class="btn btn-primary" onclick="addToCart(${product.id})" 
+                    ${product.stock === 0 ? 'disabled' : ''}>
+              ${product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+            </button>
+          ` : `
+            <button class="btn btn-secondary" onclick="navigateTo('login')">
+              Login to Buy
+            </button>
+          `}
+          ${state.token && state.user && state.user.role === 'admin' ? `
+            <button class="btn btn-secondary btn-small" onclick="editAdminProduct(${product.id})">Edit</button>
+            <button class="btn btn-danger btn-small" onclick="deleteAdminProduct(${product.id})">Delete</button>
+          ` : ''}
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function filterProducts() {
@@ -314,6 +375,12 @@ async function loadCart() {
     const cart = await apiCall('/cart');
     state.cart = cart;
     updateCartBadge();
+    
+    // Load cart impact if on sustainability page
+    if (state.currentPage === 'sustainability') {
+      await loadCartImpact();
+    }
+    
     if (state.currentPage === 'cart') {
       renderCart();
     }
@@ -416,7 +483,7 @@ async function handleCheckout() {
   
   try {
     await apiCall('/orders', { method: 'POST' });
-    showToast('Order placed successfully!');
+    showToast('Order placed successfully! 🌱');
     loadCart();
     navigateTo('orders');
   } catch (error) {
@@ -454,6 +521,11 @@ function renderOrders() {
         </div>
         <span class="order-status ${order.status}">${order.status.toUpperCase()}</span>
       </div>
+      ${order.greenPointsEarned ? `
+        <div class="order-green-points">
+          🌱 Earned ${order.greenPointsEarned} Green Points
+        </div>
+      ` : ''}
       <div class="order-items">
         ${order.orderItems.map(item => `
           <div class="order-item">
@@ -503,6 +575,7 @@ function renderAdminProducts(products) {
   
   container.innerHTML = products.map(product => `
     <div class="admin-product-card">
+      ${product.isEcoFriendly ? '<div class="eco-badge-small">🌿 Eco</div>' : ''}
       <img src="${product.imageUrl || 'https://via.placeholder.com/80'}" 
            alt="${product.name}" class="admin-product-image">
       <div class="admin-product-info">
@@ -511,6 +584,7 @@ function renderAdminProducts(products) {
           <span>${product.category}</span> • 
           <span>$${parseFloat(product.price).toFixed(2)}</span> • 
           <span>Stock: ${product.stock}</span>
+          ${product.isEcoFriendly ? ` • <span style="color: #4caf50;">CO₂: ${product.carbonFootprint.toFixed(1)}kg</span>` : ''}
         </div>
       </div>
       <div class="admin-product-actions">
@@ -530,7 +604,6 @@ function previewImage() {
     previewImg.src = imageUrl;
     preview.style.display = 'block';
     
-    // Handle image load error
     previewImg.onerror = function() {
       preview.style.display = 'none';
       showToast('Invalid image URL', 'error');
@@ -550,7 +623,12 @@ async function handleAdminProductSubmit(e) {
     price: parseFloat(document.getElementById('adminProductPrice').value),
     imageUrl: document.getElementById('adminProductImage').value || 'https://via.placeholder.com/300x200?text=Product',
     stock: parseInt(document.getElementById('adminProductStock').value),
-    category: document.getElementById('adminProductCategory').value
+    category: document.getElementById('adminProductCategory').value,
+    isEcoFriendly: document.getElementById('adminProductEcoFriendly')?.checked || false,
+    carbonFootprint: parseFloat(document.getElementById('adminProductCarbon')?.value || 2.5),
+    plasticContent: parseFloat(document.getElementById('adminProductPlastic')?.value || 50),
+    recyclable: document.getElementById('adminProductRecyclable')?.checked || false,
+    locallySourced: document.getElementById('adminProductLocal')?.checked || false
   };
   
   try {
@@ -570,7 +648,7 @@ async function handleAdminProductSubmit(e) {
     
     resetAdminForm();
     loadAdminProducts();
-    loadProducts(); // Refresh public products too
+    loadProducts();
   } catch (error) {
     showToast(error.message, 'error');
   }
@@ -588,15 +666,23 @@ function editAdminProduct(productId) {
   document.getElementById('adminProductImage').value = product.imageUrl || '';
   document.getElementById('adminProductStock').value = product.stock;
   document.getElementById('adminProductCategory').value = product.category;
+  
+  // Sustainability fields
+  if (document.getElementById('adminProductEcoFriendly')) {
+    document.getElementById('adminProductEcoFriendly').checked = product.isEcoFriendly;
+    document.getElementById('adminProductCarbon').value = product.carbonFootprint;
+    document.getElementById('adminProductPlastic').value = product.plasticContent;
+    document.getElementById('adminProductRecyclable').checked = product.recyclable;
+    document.getElementById('adminProductLocal').checked = product.locallySourced;
+  }
+  
   document.getElementById('adminFormBtnText').textContent = 'Update Product';
   document.getElementById('adminCancelBtn').style.display = 'block';
   
-  // Show preview if image exists
   if (product.imageUrl) {
     previewImage();
   }
   
-  // Scroll to form
   document.getElementById('adminProductForm').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -607,7 +693,7 @@ async function deleteAdminProduct(productId) {
     await apiCall(`/products/${productId}`, { method: 'DELETE' });
     showToast('Product deleted successfully!');
     loadAdminProducts();
-    loadProducts(); // Refresh public products too
+    loadProducts();
   } catch (error) {
     showToast(error.message, 'error');
   }
@@ -622,6 +708,139 @@ function resetAdminForm() {
   document.getElementById('imagePreview').style.display = 'none';
 }
 
+// Sustainability Functions
+async function loadSustainabilityDashboard() {
+  if (!state.token) return;
+  
+  try {
+    const dashboard = await apiCall('/sustainability/dashboard');
+    state.sustainabilityData = dashboard;
+    
+    const preferences = await apiCall('/sustainability/preferences');
+    const leaderboard = await apiCall('/sustainability/leaderboard');
+    
+    await loadCartImpact();
+    
+    renderSustainabilityDashboard(dashboard, preferences, leaderboard);
+  } catch (error) {
+    console.error('Failed to load sustainability dashboard:', error);
+    showToast('Failed to load sustainability data', 'error');
+  }
+}
+
+function renderSustainabilityDashboard(dashboard, preferences, leaderboard) {
+  document.getElementById('co2Saved').textContent = `${dashboard.totalCO2Saved.toFixed(1)} kg`;
+  document.getElementById('plasticSaved').textContent = `${dashboard.totalPlasticSaved.toFixed(0)} g`;
+  document.getElementById('greenPoints').textContent = dashboard.greenPoints;
+  document.getElementById('userRank').textContent = `#${dashboard.globalRank}`;
+  
+  document.getElementById('packagingPref').value = preferences.packagingPreference;
+  document.getElementById('notifyGreenDeals').checked = preferences.notifyGreenDeals;
+  document.getElementById('showCarbonFootprint').checked = preferences.showCarbonFootprint;
+  
+  renderLeaderboard(leaderboard);
+}
+
+async function loadCartImpact() {
+  if (!state.token) return;
+  
+  try {
+    const impact = await apiCall('/sustainability/cart-impact');
+    state.cartImpact = impact;
+    renderCartImpact(impact);
+  } catch (error) {
+    console.error('Failed to load cart impact:', error);
+  }
+}
+
+function renderCartImpact(impact) {
+  const container = document.getElementById('cartImpact');
+  
+  if (!impact || impact.totalItems === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #666;">Your cart is empty. Add products to see environmental impact!</p>';
+    return;
+  }
+  
+  container.innerHTML = `
+    <div class="cart-impact-display">
+      <div class="impact-metric">
+        <div class="impact-metric-value">${impact.totalCO2} kg</div>
+        <div class="impact-metric-label">CO₂ Footprint</div>
+      </div>
+      
+      <div class="impact-metric">
+        <div class="impact-metric-value">${impact.totalPlastic} g</div>
+        <div class="impact-metric-label">Plastic Content</div>
+      </div>
+      
+      <div class="impact-metric">
+        <div class="impact-metric-value">${impact.ecoFriendlyItems}/${impact.totalItems}</div>
+        <div class="impact-metric-label">Eco-Friendly Items</div>
+      </div>
+      
+      <div class="impact-metric">
+        <div class="impact-metric-value">${impact.ecoPercentage}%</div>
+        <div class="impact-metric-label">Eco Score</div>
+      </div>
+      
+      <div class="impact-metric">
+        <div class="impact-metric-value" style="color: #4caf50;">+${impact.potentialGreenPoints}</div>
+        <div class="impact-metric-label">Potential Green Points</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLeaderboard(leaderboard) {
+  const container = document.getElementById('leaderboard');
+  
+  if (leaderboard.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #666;">No data yet. Be the first green champion!</p>';
+    return;
+  }
+  
+  container.innerHTML = leaderboard.map((user, index) => `
+    <div class="leaderboard-item">
+      <div class="leaderboard-rank">${getRankEmoji(index + 1)}${index + 1}</div>
+      <div class="leaderboard-name">${user.name}</div>
+      <div class="leaderboard-stats">
+        <div class="leaderboard-points">⭐ ${user.greenPoints} pts</div>
+        <div style="font-size: 0.85rem; color: #666;">
+          🌍 ${user.totalCO2Saved.toFixed(1)} kg CO₂ | ♻️ ${user.totalPlasticSaved.toFixed(0)} g plastic
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getRankEmoji(rank) {
+  if (rank === 1) return '🥇 ';
+  if (rank === 2) return '🥈 ';
+  if (rank === 3) return '🥉 ';
+  return '';
+}
+
+async function handleSustainabilityPreferences(e) {
+  e.preventDefault();
+  
+  const preferences = {
+    packagingPreference: document.getElementById('packagingPref').value,
+    notifyGreenDeals: document.getElementById('notifyGreenDeals').checked,
+    showCarbonFootprint: document.getElementById('showCarbonFootprint').checked
+  };
+  
+  try {
+    await apiCall('/sustainability/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences)
+    });
+    
+    showToast('Preferences saved! 🌱');
+  } catch (error) {
+    showToast(error.message, 'error');
+  }
+}
+
 // Make functions globally available
 window.navigateTo = navigateTo;
 window.addToCart = addToCart;
@@ -630,3 +849,4 @@ window.removeFromCart = removeFromCart;
 window.cancelOrder = cancelOrder;
 window.editAdminProduct = editAdminProduct;
 window.deleteAdminProduct = deleteAdminProduct;
+window.loadCartImpact = loadCartImpact;

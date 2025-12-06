@@ -5,6 +5,7 @@ const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
+const sustainabilityRoutes = require('./routes/sustainability');  // ADD THIS
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/sustainability', sustainabilityRoutes);  // ADD THIS
 
 // Health check
 app.get('/api/health', (req, res) => {
