@@ -1,5 +1,5 @@
 // API Configuration
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://smartcart-backend-6q86.onrender.com/api';
 
 // State Management
 const state = {
